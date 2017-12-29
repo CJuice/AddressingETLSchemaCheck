@@ -3,6 +3,7 @@ Identifies schema changes in address point feature classes by comparing required
 fields present in the data. The results of the check are printed. If required fields are missing the county data
 will not work properly with later steps in the ETL process that depend on the required field(s) being present.
 Modified from original script by CJuice on 20171208
+Revised dictRequiredFields for Jeyan on 20171229
 """
 
 # IMPORTS
@@ -23,13 +24,14 @@ strPSAFieldsNotPresentInSubmittedData = "\tRequired Fields Not In Submitted Data
 strPSAErrorListFeatureClasses = "Error generating list of feature class field names: {}\n"
 strPSAGeoprocessingError = "GP Error: {}"
 lsFeatureClassesInMasterGDB = None
+# strRootGeodatabasePath = r"D:\ETL\Addresses\Data\SubmittedData.gdb"
 strRootGeodatabasePath = r"E:\Addressing_FMEProject\Raw data\ConsolidatedAddressData_Summer2017.gdb"
 
     # Logging setup
 strInfo = "info"
 strWarning = "warning"
 strError = "error"
-strLogFileName = r"LogFiles\SchemaCheck.log"
+strLogFileName = r"E:\Addressing_FMEProject\Scripts\LogFiles\SchemaCheck.log"
 tupTodayDateTime = datetime.datetime.utcnow().timetuple()
 strTodayDateTimeForLogging = "{}/{}/{} UTC[{}:{}:{}]".format(tupTodayDateTime[0]
                                                           , tupTodayDateTime[1]
@@ -44,14 +46,14 @@ strPSAForLogging_ScriptInitiated = " {} - Schema Check Initiated".format(strToda
     # NOTE: format of dictionary is {county feature class name (no spaces!) : list of required fields for that county}
 dictRequiredFields = {
     "Allegany":             [u'objectid',u'streetsuf',u'siteaddid',u'preaddrnum',u'addrnum',u'addrnumsuf',u'prefix',u'streetname',u'postdir',u'fullname',u'unittype',u'unitid',u'msag',u'zip',u'addrclass']
-    , "AnneArundel":        [u'OBJECTID',u'BMC_ID',u'ST_TYPE',u'ST_NAME',u'ST_NUMSUFF',u'ST_PREFIXD',u'ST_SUFFIXD',u'UNIT_TYPE',u'UNITNUM',u'UNIT_ADDR',u'FULL_ADDRE',u'BLDG_NAME',u'CITY_NAME',u'ZIPCODE',u'GlobalID',u'ST_NUMBER']
+    , "AnneArundel":        [u'OBJECTID',u'BMC_ID',u'ST_TYPE',u'ST_NAME',u'ST_NUMSUFFIX',u'ST_PREFIXDIR',u'ST_SUFFIXDIR',u'UNIT_TYPE',u'UNITNUM',u'UNIT_ADDR',u'FULL_ADDRESS',u'BLDG_NAME',u'CITY_NAME',u'ZIPCODE',u'GlobalID',u'ST_NUMBER']
     , "BaltimoreCity":      [u'OBJECTID',u'ADDRPT_ID',u'ST_NAME',u'ST_DIR',u'ADDR_FRAC',u'ZIP_CODE',u'ADDR_NUMBE',u'ST_TYPE']
     , "BaltimoreCounty":    [u'OBJECTID',u'ST_TYPE',u'ST_NAME',u'ST_PREFIXTYPE',u'ST_NUMSUFFIX',u'ST_PREMOD',u'ST_PREFIXDIR',u'ST_SUFFIXDIR',u'ST_POSTMOD',u'ADDRLABEL',u'CITY_POSTAL',u'STATE',u'ZIP',u'ADDRESSUSE',u'ST_NUMBER']
     , "Calvert":            [u'OBJECTID',u'PREMSNUM',u'PREMSDIR',u'PREMSNAM',u'PREMSTYP',u'ALPHA',u'PREMCITY',u'PREMZIP']
     , "Caroline":           [u'OBJECTID',u'STRT_ADD',u'STRT_PFX',u'STRT_NAME',u'UNIT',u'COMMUNITY',u'ZIP',u'TYP',u'TYPE']
     , "Carroll":            [u'OBJECTID',u'ST_TYPE',u'ST_NAME',u'ST_NUM_SUF',u'ST_PREFIX',u'ST_SUFFIX',u'UNIT_TYPE',u'UNIT_NUMBE',u'County',u'ZIPCODE',u'ST_NUMBER']
     , "Cecil":              [u'OBJECTID',u'STRT_ADD',u'STRT_PFX',u'STRT_NAME',u'STRT_SUF',u'UNIT',u'Comment',u'COMMUNITY',u'TYP',u'TYPE',u'NAME']
-    , "Charles":            [u'OBJECTID',u'NEWCITY',u'NUMBER_',u'Street_Pre',u'Street_Nam',u'Street_typ',u'Street_Suf',u'ZIP',u'Addl_Info']
+    , "Charles":            [u'OBJECTID',u'NEWCITY',u'NUMBER_',u'STREET_NAME_PRE_DIRECTIONAL',u'STREET_NAME',u'STREET_NAME_POST_TYPE',u'Street_Suf',u'ZIP',u'Addl_Info']
     , "Dorchester":         [u'OBJECTID',u'STRTTYP',u'STRTNUM',u'STRTDIR',u'STRTNAM',u'STRTSFX',u'STRTUNT',u'COMMUNITY']
     , "Frederick":          [u'OBJECTID',u'ST_TYPE',u'ST_NUM',u'ST_NUM_SUFFIX',u'ST_PREFIX',u'ST_NAME',u'ST_SUFFIX',u'UNIT_TYPE',u'UNIT_NUM',u'CITY',u'STATE',u'ZIP_STNM',u'ADDR_TYPE']
     , "Garrett":            [u'OBJECTID',u'STRUCTURE_NUMBER',u'STRUCTURE_NUMBER_SUFFIX',u'PREFIX_DIRECTIONAL',u'STREET_NAME',u'STREET_TYPE',u'SUFFIX_DIRECTIONAL',u'UNIT_TYPE',u'UNIT_NUMBER',u'CITY',u'COMMUNITY',u'STATE',u'ZIP_CODE']
@@ -64,7 +66,7 @@ dictRequiredFields = {
     , "Somerset":           [u'OBJECTID',u'STRNUM',u'STRTYPE',u'STRDIR',u'STRNAM',u'UNITTYPE',u'UNIT',u'CITY',u'ZIP',u'MYPROPERTY']
     , "StMarys":            [u'OBJECTID',u'ST_TYPE',u'HOUSE_NO',u'ST_DIR',u'ST_NAME',u'APT_NO',u'ZIP']
     , "Talbot":             [u'OBJECTID',u'STRT_ADDR',u'PREF_DIR',u'STREET',u'SUFF_TYPE',u'SUFF_DIR',u'STREET_NAM',u'UNIT_APT',u'COMMUNITY',u'B_TYPE']
-    , "Washington":         [u'OBJECTID',u'STRUCTURE_',u'STRUCTURE1',u'PREFIX_DIR',u'STREET_TYP',u'STREET_NAM',u'SUFFIX_DIR',u'UNIT_TYPE',u'SITE_TYPE',u'UNIT_NUMBE',u'COMMUNITY',u'STATE',u'ZIP_CODE']
+    , "Washington":         [u'OBJECTID',u'STRUCTURE_NUMBER',u'STRUCTURE_NUMBER_SUFFIX',u'PREFIX_DIRECTIONAL',u'STREET_TYPE',u'STREET_NAME',u'SUFFIX_DIRECTIONAL',u'UNIT_TYPE',u'SITE_TYPE',u'UNIT_NUMBER',u'COMMUNITY',u'STATE',u'ZIP_CODE']
     , "Wicomico":           [u'OBJECTID',u'STRTNUM',u'ADDRESS',u'NAME',u'STRTTYP',u'STRTDIR',u'STRTNAM',u'STRTSFX',u'STRTUNT',u'CITY',u'ZIPCODE']
     , "Worcester":          [u'OBJECTID',u'ST_TYPE',u'ST_NUMBER',u'ST_NUM_SUFFIX',u'ST_PREFIX',u'ST_NAME',u'ST_SUFFIX',u'UNIT_TYPE',u'UNIT_NUMBER',u'comunity_l',u'ZIPcode']}
     # Make an ordered dictionary so that the datasets are processed in alphabetical. Makes for more readable output.
